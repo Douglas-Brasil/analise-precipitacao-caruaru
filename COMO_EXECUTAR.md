@@ -10,7 +10,7 @@ C:\Users\sergiobfj\Documents\dev\estudos\faculdade\analise-precipitacao-caruaru
 
 No VS Code, use **Arquivo → Abrir Pasta** e selecione essa pasta. O ambiente já foi criado nesta máquina. Para a aula de hoje, vá direto à seleção do kernel no passo 6.
 
-As mudanças desta aula estão na branch **local** `finalizacao-random-forest-aula08`. Não houve push. Um novo clone do GitHub terá a versão remota original, sem estas mudanças locais.
+As mudanças desta aula estão consolidadas na branch `main` do repositório no GitHub. Um novo clone obtém os notebooks, os guias e as saídas executadas desta versão.
 
 ## 2. Como clonar o projeto?
 
@@ -21,15 +21,14 @@ git clone https://github.com/Douglas-Brasil/analise-precipitacao-caruaru.git
 cd analise-precipitacao-caruaru
 ```
 
-Isso obtém a base remota. Para copiar a versão preparada **nesta máquina**, depois de suas mudanças estarem em commit local, use outra pasta de destino:
+Isso obtém a versão publicada na `main`. Se já tiver um clone, com as alterações locais salvas em commit e a árvore de trabalho limpa, atualize-o:
 
 ```powershell
-cd C:\Users\sergiobfj\Documents\dev\estudos\faculdade
-git clone --branch finalizacao-random-forest-aula08 "C:\Users\sergiobfj\Documents\dev\estudos\faculdade\analise-precipitacao-caruaru" analise-precipitacao-caruaru-aula
-cd analise-precipitacao-caruaru-aula
+git switch main
+git pull --ff-only origin main
 ```
 
-Esse clone é local: não envia nada ao GitHub. A `.venv` não é copiada pelo Git; crie outra nos próximos passos.
+Se o Git informar que os históricos divergiram, integre as contribuições antes de atualizar; não use force push. A `.venv` não é copiada pelo Git; crie outra nos próximos passos.
 
 ## 3. Como instalar o Python?
 
