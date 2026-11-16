@@ -1,0 +1,30 @@
+{
+    "files.exclude": {
+        "**/.git": true,
+        "**/.vscode": true,
+        "**/.venv": true,
+        "**/__pycache__": true,
+        "**/*.pyc": true,
+        "**/.ipynb_checkpoints": true,
+        "**/.pytest_cache": true,
+        "**/.mypy_cache": true,
+        "**/.ruff_cache": true,
+        "**/.DS_Store": true,
+        ".jupyter-local": true,
+        "artefatos": true,
+        "auditoria": true,
+        "src": true,
+        ".gitignore": true,
+        ".python-version": true,
+        "ABRIR_JUPYTER.cmd": true,
+        "iniciar_jupyter.ps1": true,
+        "pyproject.toml": true,
+        "requirements-aula.txt": true,
+        "uv.lock": true,
+        "verificar_notebooks.py": true,
+        "dataset": false,
+        "notebooks": false,
+        "README.md": false,
+        "GUIA_RAPIDO.md": false
+    }
+}
