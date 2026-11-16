@@ -25,6 +25,7 @@
         "dataset": false,
         "notebooks": false,
         "README.md": false,
-        "GUIA_RAPIDO.md": false
+        "GUIA_RAPIDO.md": false,
+        "COMO_EXECUTAR.md": false
     }
 }

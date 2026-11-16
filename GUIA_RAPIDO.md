@@ -1,212 +1,279 @@
-# Guia rápido — Análise de precipitação em Caruaru
+# Guia de estudo — chuva em Caruaru
 
-Preparação local em 16/11/2026, para demonstração acadêmica. Repositório: https://github.com/Douglas-Brasil/analise-precipitacao-caruaru
+Perguntas e respostas para conversar com o professor. Referência: **aula 08, MSc. Flávio Morais**: métricas nas páginas 6–31, hiperparâmetros e buscas nas 33–63 e Random Forest nas 74–85.
 
-## Acesso imediato
+**O que está pronto?** Temos Decision Tree e Random Forest executadas, com saídas salvas. A floresta tem validação temporal, duas buscas pequenas e comparação inicial/ajustada. Nesta etapa, a árvore recebeu correções de apresentação e interpretação, mantendo seus treinos e hiperparâmetros.
 
-Abra `ABRIR_JUPYTER.cmd` na pasta do projeto. Ele inicia/reutiliza o JupyterLab local e abre este guia no navegador. Em cada notebook, selecione **Python 3.12 (.venv Caruaru)**. Use **Kernel → Restart Kernel and Run All Cells** para demonstrar execução independente.
+**Como executar?** Consulte [COMO_EXECUTAR.md](COMO_EXECUTAR.md). Na aula, abra os notebooks 09 e 10; as tabelas e os gráficos já estão salvos.
 
-```powershell
-cd C:\Users\sergiobfj\Documents\dev\estudos\faculdade\analise-precipitacao-caruaru
-powershell -NoProfile -ExecutionPolicy Bypass -File .\iniciar_jupyter.ps1
-```
+## Sobre o projeto
 
-A URL autenticada da sessão fica em `.jupyter-local/url.txt`. Não publique esse arquivo. O servidor atende somente em `127.0.0.1`, com autenticação padrão do Jupyter. Fechar a aba não encerra o servidor. Para encerrá-lo, na raiz do projeto: `$env:JUPYTER_RUNTIME_DIR = "$PWD\.jupyter-local"; .\.venv\Scripts\jupyter.exe server stop 8888` (substitua a porta caso o inicializador tenha escolhido outra).
+**Qual é o objetivo do projeto?** Classificar se ocorreu chuva em cada registro horário da estação meteorológica de Caruaru, usando as condições meteorológicas medidas.
 
-**Servidor iniciado e verificado em 16/11/2026: http://127.0.0.1:8888/lab.** O inicializador também foi executado para abrir o guia no navegador. Se a URL simples pedir token, abra `ABRIR_JUPYTER.cmd`, que recupera a URL autenticada sem precisar copiar credenciais.
+**Qual é a origem da base?** INMET, estação A341, Caruaru/PE, de 01/01/2025 a 31/12/2025. A origem e o período estão documentados no README e no cabeçalho do CSV original.
 
-Uma sessão do notebook 10 foi iniciada pelo servidor e testada com uma célula que confirma o interpretador `.venv\Scripts\python.exe` e o diretório `notebooks/`. O kernel foi deixado disponível; evidência em `auditoria/kernel_servidor.json`. As saídas dos modelos já estão salvas nos notebooks; para treinar ao vivo, reinicie o kernel e execute todas as células.
+**Quantos registros e atributos temos?** A base bruta e a adaptada têm 8.760 linhas e 20 colunas cada. A processada da árvore tem 8.756 linhas, 17 atributos e 1 alvo. A floresta usa 8.760 linhas e 18 atributos antes dos indicadores de ausência.
 
-## Estado da verificação
+**O que cada registro representa?** Uma observação de uma hora, com data e hora UTC. Não representa um dia nem uma estação meteorológica diferente.
 
-**Sete de sete notebooks executados com sucesso em kernels novos**, incluindo 51 células de código dos arquivos, os `%run` internos, Grid Search e Random Search. Importações, caminhos e variáveis funcionaram no ambiente local. Não foi necessário alterar nenhum modelo.
+**Qual é a variável-alvo?** `CHUVA`: SIM ou NAO. Nos modelos, SIM=1 é a classe positiva e NAO=0 é a negativa. A floresta chama sua versão numérica de `CHUVA_BINARIA`.
 
-Ambiente: **Python 3.12.8, 64 bits**; JupyterLab 4.6.6, Jupyter 1.1.1, ipykernel 7.4.0, pandas 3.1.1, NumPy 2.5.5, Matplotlib 3.11.2, scikit-learn 1.9.1, imbalanced-learn 0.14.2 e SciPy 1.18.1. `pip check`: **No broken requirements found**. As versões completas estão em `requirements-aula.txt`.
+**O que são features e target?** Features são os atributos de entrada, como umidade e temperatura. Target é a resposta que o modelo tenta classificar: ocorrência de chuva.
 
-| Notebook | Estado | Duração da primeira verificação |
-|---|---|---:|
-| `dataset/df_adaptado.ipynb` | OK, exportação segura | 9,91 s |
-| `01_analise_exploratoria.ipynb` | OK | 3,03 s |
-| `02_analise_valores_nulos.ipynb` | OK | 2,63 s |
-| `06_pre-processamento.ipynb` | OK, avisos de depreciação | 24,23 s |
-| `07_divisao_e_balanceamento.ipynb` | OK | 9,68 s |
-| `09_decision_tree.ipynb` | OK, incluindo buscas e CV | 36,80 s |
-| `10_random_forest.ipynb` | OK, 400 árvores | 16,68 s |
+**Por que modificamos a coluna de precipitação?** Transformamos o valor numérico em uma resposta categórica: precipitação acima de zero vira SIM; os demais casos viram NAO. Isso adapta a base ao problema de classificação escolhido pelo grupo.
 
-Tempo total desta primeira execução: aproximadamente **1 min 43 s**; instalação e preparação do ambiente são etapas separadas. As durações podem variar na aula. Evidência: `auditoria/execucao.json`.
+**Por que classificação, e não regressão?** Queremos saber a classe de ocorrência, não estimar quantos milímetros choveram. Prever uma quantidade numérica seria outro problema.
 
-Resultados reais do teste; precisão, recall e F1 abaixo sempre se referem à classe **SIM=1**:
+**Por que aprendizado supervisionado?** O treino já contém exemplos de atributos acompanhados da resposta conhecida, derivada da precipitação registrada.
 
-| Estimador existente | Acurácia | Precisão SIM | Recall SIM | F1 SIM | MCC no teste |
-|---|---:|---:|---:|---:|---:|
-| Árvore inicial | 88,36% | 62,82% | 55,68% | 59,04% | 0,524076 |
-| Árvore ajustada | 89,04% | 64,40% | 60,98% | 62,65% | 0,562588 |
-| Random Forest | 98,80% | 100,00% | 22,22% | 36,36% | 0,468561 |
+**Estamos classificando ou prevendo chuvas futuras?** Classificamos a ocorrência no mesmo horário das medições. Separar o teste no tempo não transforma automaticamente o modelo em previsão futura.
 
-Matrizes: linhas = classe real, colunas = predita, ordem **[NAO, SIM]**:
+**Isso já é processamento de Big Data distribuído?** Não. Os três CSVs somam cerca de 4,54 MB; usamos pandas e scikit-learn localmente. Não implementamos Spark ou Hadoop.
 
-- Árvore inicial: `[[1401, 87], [117, 147]]`.
-- Árvore ajustada: `[[1399, 89], [103, 161]]`.
-- Random Forest: `[[1725, 0], [21, 6]]`.
+## Sobre os dados
 
-As tabelas manuais antigas da árvore chamam o acerto de 1.401 registros NAO de “verdadeiro positivo”. Para a avaliação de chuva usada pelo `scoring='f1'`, o positivo é SIM; nesse caso a árvore inicial tem **147 verdadeiros positivos**. Use a ordem das classes exibida na matriz e a tabela calculada acima para evitar inverter a interpretação.
+**O que é análise exploratória?** É conhecer a base antes de treinar: tamanho, tipos, estatísticas, nulos e frequência das classes. Isso está nos notebooks 01 e 02.
 
-**Não usar a acurácia para declarar a floresta superior.** A árvore tem 264 casos SIM no teste aleatório; a floresta tem somente 27 no teste cronológico e encontra 6 deles, deixando 21 sem detecção. Seus conjuntos de teste são diferentes. As métricas numéricas não arredondadas e os parâmetros completos estão nos JSONs de auditoria.
+**Quais atributos utilizamos?** As 16 medições meteorológicas: três de pressão, radiação, seis de temperatura/ponto de orvalho, três de umidade e três de vento. A árvore acrescenta estação do ano; a floresta acrescenta mês e hora.
 
-Avisos observados: Pandas anuncia futura remoção de `inplace` no notebook 06, sem impedir a execução; nbformat completou IDs ausentes de células do notebook 10. O Windows/ZeroMQ emite avisos de inicialização, sem falha dos kernels. Joblib/Loky emite `KeyError` no processo auxiliar de limpeza de temporários após as buscas. A árvore foi reexecutada com diretório temporário explícito: concluiu novamente, com os mesmos resultados, mas a mensagem de limpeza persistiu. **Essa pendência de biblioteca permanece**, sem bloquear as células ou o kernel. Evidências: `auditoria/reexecucao_arvore.stderr.log` e `auditoria/execucao_arvore_temp_local.json`.
+**Quais atributos foram removidos e por quê?** A precipitação numérica foi retirada ao criar o alvo, evitando entregar a resposta ao modelo. Removemos `Unnamed: 19`, que era vazia. A árvore retira data e hora; a floresta extrai mês/hora e depois retira os textos, o timestamp e os próprios alvos das entradas.
 
-## Ordem de apresentação e dependências
+**Mês e hora são irrelevantes para chuva?** Não podemos afirmar isso. Eles podem representar sazonalidade. A remoção da hora no fluxo da árvore foi uma decisão histórica; a floresta mantém mês e hora como atributos.
 
-1. `notebooks/01_analise_exploratoria.ipynb`: dimensões, tipos, distribuição do alvo e estatísticas da base adaptada.
-2. `notebooks/02_analise_valores_nulos.ipynb`: nulos e duplicados da base adaptada.
-3. `notebooks/06_pre-processamento.ipynb`: estação, remoção de colunas, média da radiação, remoção de linhas nulas, LabelEncoder e MinMaxScaler; exporta uma cópia em `artefatos/datasets`.
-4. `notebooks/07_divisao_e_balanceamento.ipynb`: lê o CSV processado fornecido em `dataset/`, divide treino/teste e produz também um treino balanceado.
-5. `notebooks/09_decision_tree.ipynb`: executa o notebook 07 via `%run`; treina e avalia árvores, validação cruzada, Grid Search e Random Search. Não depende de variáveis de outro kernel.
-6. `notebooks/10_random_forest.ipynb`: fluxo independente; lê a base adaptada, divide cronologicamente, prepara, treina e avalia a floresta.
+**Quais problemas encontramos na base?** Radiação com 3.286 nulos, uma coluna totalmente vazia e quatro ausências em cada uma das demais medições. Não encontramos linhas totalmente duplicadas na base adaptada.
 
-Opcional, antes das análises: `dataset/df_adaptado.ipynb` documenta a transformação da base bruta em adaptada. Não é pré-requisito, pois o CSV adaptado já está no repositório. Na versão local, gera sua cópia em `artefatos/datasets`.
+**Como tratamos os nulos na árvore?** O notebook 06 preenche radiação pela média e remove as quatro linhas que ainda tinham ausências. Restam 8.756 registros sem nulos.
 
-Os notebooks devem rodar com diretório de trabalho igual à pasta em que estão (`notebooks/` ou `dataset/`). O Jupyter aberto na raiz e os notebooks abertos pelo navegador usam essa organização; o verificador também a define explicitamente. Não rode `%run notebooks/09_decision_tree.ipynb` de um kernel na raiz: seus caminhos relativos pressupõem a pasta `notebooks/`.
+**Como tratamos os nulos na floresta?** Usamos mediana e indicadores de ausência dentro de um Pipeline. O preenchimento é aprendido apenas no treino de cada fold e depois aplicado à validação ou ao teste.
 
-Os CSVs originais, adaptados e processados fornecidos permanecem como entradas. As cópias regeneradas são verificadas separadamente, sem substituir os arquivos versionados. Não há notebooks 03, 04, 05 ou 08 nesta versão; os saltos na numeração não indicam arquivos locais ausentes.
+**Existe um problema na criação do alvo?** Sim: quatro precipitações ausentes também viraram NAO pela comparação original. A preparação da árvore remove essas linhas; a floresta conserva a base adaptada. Rever esses rótulos é uma pendência, sem alterar os CSVs originais nesta etapa.
 
-## Estrutura completa relevante
+**Como tratamos os outliers?** Não existe detecção ou correção específica implementada. O notebook 06 assume que sensores não geram outliers, mas essa justificativa não comprova a qualidade das medições. A revisão é uma pendência.
 
-| Item | Papel |
+**O que é label encoding?** É trocar categorias por códigos numéricos. Na árvore, NAO vira 0 e SIM vira 1; as estações também recebem códigos.
+
+**O que é MinMaxScaler?** É uma transformação que usa mínimo e máximo para ajustar os valores à faixa de zero a um. No notebook 06, ela também recebe o alvo já codificado em 0 e 1.
+
+**Por que normalizamos os dados?** Foi uma decisão do pré-processamento existente. Árvores não exigem essa normalização para comparar limiares. A Random Forest não normaliza os atributos.
+
+**O que é desbalanceamento de classes?** É ter muito mais exemplos de uma classe. Na adaptada, temos 7.440 NAO e 1.320 SIM: apenas 15,07% dos registros são de chuva.
+
+**O que é random undersampling?** É sortear uma parte da classe mais comum para igualar sua quantidade à classe rara. O notebook 07 produz 2.112 registros de treino: 1.056 por classe.
+
+**A Decision Tree usa esse treino balanceado?** Não. O notebook 07 o cria, mas a árvore e suas buscas continuam usando `X_train` e `y_train`, sem undersampling. Não corrigimos essa decisão nesta etapa de apresentação.
+
+**Qual é a desvantagem do undersampling?** Ele descarta exemplos reais da classe mais comum e pode perder informação útil. Por isso deve ser avaliado, e não considerado automaticamente melhor.
+
+**Qual é a diferença entre undersampling, oversampling e SMOTE?** Undersampling reduz a classe comum; oversampling aumenta a rara, por exemplo repetindo exemplos; SMOTE cria exemplos sintéticos entre vizinhos da classe rara. Oversampling e SMOTE não foram implementados aqui.
+
+**Por que não balanceamos o teste?** Ele deve representar o período avaliado com sua distribuição real de classes. Alterar essa distribuição dificulta interpretar o desempenho esperado nesse período.
+
+**Como a floresta lida com o desbalanceamento?** `class_weight='balanced_subsample'` aumenta o peso da classe rara em cada amostra bootstrap. Isso não remove linhas nem cria registros sintéticos.
+
+**Como dividimos treino e teste?** A árvore usa divisão aleatória estratificada: 7.004 no treino e 1.752 no teste, com 264 chuvas no teste. A floresta usa ordem cronológica: 7.008 no treino e 1.752 no teste, com apenas 27 chuvas no teste.
+
+**Qual é o período do teste da floresta?** De 20/10/2025, 00h UTC, a 31/12/2025, 23h UTC. O treino termina em 19/10/2025, 23h UTC, e contém 1.293 casos SIM.
+
+**O que significa random_state=42?** É uma semente para repetir os sorteios. O número 42 não melhora o modelo; poderia ser outra semente fixa.
+
+**O que é stratify?** Na divisão da árvore, `stratify=y` mantém proporções semelhantes das classes no treino e no teste. A floresta não estratifica, porque preserva a ordem temporal.
+
+**O que é data leakage?** É deixar informação da validação ou do teste influenciar o aprendizado ou a escolha dos parâmetros. Isso pode deixar a avaliação otimista demais.
+
+**Onde há risco de leakage neste projeto?** A árvore preenche e normaliza a base antes da divisão; suas transformações usam informação do conjunto inteiro. Na floresta, o Pipeline refaz o preenchimento em cada treino, evitando esse vazamento. A revisão da árvore continua pendente.
+
+## Sobre inteligência artificial
+
+**Como funciona a Decision Tree?** Ela aprende perguntas sobre os atributos e seus limites, dividindo os registros até chegar a folhas que indicam classes.
+
+**Como funciona a Random Forest?** Combina várias árvores com amostras bootstrap e sorteios de atributos. De forma didática, elas votam; nesta implementação, a classe final vem da maior média de probabilidades das árvores, conforme a [documentação da biblioteca](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html).
+
+**Qual é a diferença entre os dois algoritmos?** A árvore usa uma estrutura única e é mais fácil de interpretar. A floresta combina muitas estruturas, costuma ser mais estável e exige mais processamento.
+
+**O que é ensemble learning?** É combinar vários estimadores em uma resposta. Nossa Random Forest é um ensemble de árvores; não implementamos outro algoritmo de ensemble nesta etapa.
+
+**O que é bagging?** É treinar estimadores em amostras sorteadas e combinar suas respostas. As árvores podem aprender de forma independente.
+
+**O que é bootstrap?** É sortear registros com reposição: um exemplo pode aparecer mais de uma vez e outro pode ficar de fora da amostra de uma árvore.
+
+**Por que sortear atributos também?** Para diversificar as árvores. `max_features` controla quantos atributos podem disputar a melhor divisão em cada nó.
+
+**O que é gini?** É uma medida da mistura de classes em um nó. Divisões melhores deixam os grupos mais puros.
+
+**O que é entropy?** É outra medida da mistura ou incerteza das classes. Também ajuda a escolher divisões que separam melhor os exemplos.
+
+**O que são parâmetros e hiperparâmetros?** Parâmetros são aprendidos no treino, como os limites das divisões. Hiperparâmetros são definidos antes do ajuste, como profundidade e quantidade de árvores.
+
+**Quais hiperparâmetros usamos na árvore?** Inicial: gini, profundidade 5, mínimo de 10 registros para dividir um nó e semente 42. Ajustada: entropy, profundidade 9, mínimo de 3 registros por folha e semente 42; o mínimo para dividir volta ao padrão 2.
+
+**Quais hiperparâmetros usamos na floresta inicial?** 400 árvores, pesos `balanced_subsample`, semente 42 e `n_jobs=-1`. Permanecem os padrões gini, profundidade sem limite, `max_features='sqrt'`, mínimo de 1 por folha e bootstrap ativado.
+
+**Quais foram escolhidos para a floresta ajustada?** 100 árvores, profundidade sem limite e mínimo de 3 registros por folha. Atributos por divisão continuam em `sqrt`, com gini, pesos `balanced_subsample`, bootstrap e semente 42 mantidos.
+
+**O que significa n_jobs=-1?** Usar os processadores disponíveis. Na floresta, as árvores trabalham em paralelo; as buscas usam `n_jobs=1` para evitar dois níveis de paralelismo e problemas de temporários no Windows.
+
+**O que é overfitting?** É aprender detalhes demais do treino e perder desempenho em dados diferentes. Um resultado bom no treino, sozinho, não comprova qualidade.
+
+**O que é underfitting?** É um modelo simples demais para capturar os padrões relevantes, com dificuldade até no treino.
+
+**O que é generalização?** É conseguir classificar bem dados que não foram usados para aprender. Ela precisa ser avaliada em dados separados.
+
+**O que é cross-validation?** É repetir ajustes e avaliações em divisões do treino para estimar o desempenho e comparar configurações sem usar o teste final.
+
+**O que são folds?** São as partes usadas nessas avaliações. Na árvore, são cinco divisões estratificadas; na floresta, cinco períodos de validação em ordem temporal.
+
+**Por que a floresta não usa simplesmente cv=5?** Para classificação, o inteiro 5 cria folds estratificados, que não garantem a ordem do tempo. Usamos `TimeSeriesSplit(n_splits=5, gap=24)`, coerente com o teste cronológico. O treino cresce e a validação sempre vem depois, como descrito no [TimeSeriesSplit](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit).
+
+**Por que deixar 24 horas entre treino e validação?** Para reduzir a proximidade imediata entre medições dos dois períodos. É uma decisão prática documentada, não uma garantia de independência nem um horizonte de previsão futura.
+
+**Por que a média varia entre folds?** Cada período tem condições e proporções de chuva diferentes. Na floresta inicial, F1 médio de validação foi 50,93%, com desvio de 18,31 pontos percentuais; isso indica variação importante entre períodos.
+
+**O que é Grid Search?** É testar todas as combinações da grade definida. Na floresta, são quatro combinações × cinco folds: 20 ajustes, mais o refit da melhor.
+
+**O que é Random Search?** É sortear um número limitado de combinações. Na floresta, sorteamos quatro entre 36 possibilidades: 20 ajustes nos folds, mais refit.
+
+**Qual é a diferença entre as duas buscas?** Grid cobre toda a grade escolhida. Random controla o custo pelo número de sorteios e pode explorar outras opções; nenhuma garante a melhor solução fora do espaço testado.
+
+**O que significa scoring='f1'?** É escolher a configuração pelo F1 da classe positiva 1, que é SIM neste projeto. Não significa acurácia nem F1 médio das duas classes.
+
+**Por que escolhemos F1 de SIM?** Porque chuva é a classe rara. Queremos equilibrar alertas corretos e chuvas detectadas; a acurácia pode ficar alta apenas acertando os muitos registros NAO.
+
+**O teste participa das buscas da floresta?** Não. Elas recebem somente `X_train` e `y_train`. A escolha entre buscas usa a média do F1 temporal; a avaliação do teste acontece depois.
+
+**O que é refit?** Depois de escolher a combinação na validação, a busca ajusta esse candidato usando todo o treino. `best_estimator_` já é esse Pipeline treinado.
+
+**O que significa modelo otimizado?** É o candidato ajustado pela busca. Não significa melhor em qualquer situação; aqui houve melhora também no teste, mas a escolha foi feita antes de observar essa comparação.
+
+## Sobre avaliação e interpretação
+
+**O que é uma matriz de confusão?** Uma tabela de classes reais nas linhas e previstas nas colunas. Nossos gráficos usam NAO=0 primeiro e SIM=1 depois: `[[vn, fp], [fn, vp]]`. Os slides da aula colocam positivo primeiro; o importante é respeitar os rótulos.
+
+**O que são verdadeiros e falsos positivos e negativos?** VP: choveu e o modelo disse SIM. FP: não choveu, mas ele disse SIM. FN: choveu, mas ele disse NAO. VN: não choveu e ele disse NAO.
+
+**Qual interpretação foi corrigida na árvore?** O acerto de 1.401 registros NAO era chamado de verdadeiro positivo em tabelas manuais. Como SIM=1 é positivo, esse número é VN; os VP iniciais são 147. Agora as métricas são calculadas automaticamente, sem aquelas contas manuais.
+
+**O que é acurácia?** Total de acertos dividido pelo total: `(vp + vn) / total`.
+
+**O que é precisão?** Entre os alertas SIM, quantos estavam certos: `vp / (vp + fp)`.
+
+**O que é sensibilidade?** Entre as chuvas reais, quantas foram detectadas: `vp / (vp + fn)`. Também se chama recall da classe SIM.
+
+**O que é especificidade?** Entre as horas sem chuva, quantas foram identificadas corretamente: `vn / (vn + fp)`. No código, usamos `recall_score(..., pos_label=0)`.
+
+**O que é F1-score?** É a média harmônica da precisão e da sensibilidade: `2 × precisão × sensibilidade / (precisão + sensibilidade)`. Só fica alto quando as duas estão boas.
+
+**O que é MCC?** É uma medida que combina as quatro partes da matriz. Vai de -1 a 1: 1 indica concordância perfeita; 0 indica ausência de correlação; -1 indica discordância total.
+
+**Por que acurácia sozinha pode enganar?** No teste da floresta, 1.725 de 1.752 horas não tiveram chuva. Dizer NAO em tudo daria 98,46% de acurácia e não encontraria nenhuma chuva. Esse é um cálculo de referência, não outro modelo implementado.
+
+**Por que acompanhar MCC e especificidade se escolhemos por F1?** F1 foca a classe SIM e não usa diretamente os verdadeiros negativos. MCC e especificidade ajudam a verificar o comportamento nas duas classes e os falsos alertas.
+
+**Como os resultados são apresentados?** Acurácia, precisão, sensibilidade, especificidade e F1 em porcentagem com duas casas; MCC com quatro casas. Os cálculos mantêm a precisão original: só a exibição é arredondada.
+
+## Resultados reais
+
+**Quais são os resultados da Decision Tree no teste aleatório?** As duas versões usam o mesmo teste de 1.752 registros, com 264 SIM. Os treinos e hiperparâmetros existentes foram preservados.
+
+| Modelo | Acurácia | Precisão SIM | Sensibilidade SIM | Especificidade | F1 SIM | MCC |
+|---|---:|---:|---:|---:|---:|---:|
+| Árvore inicial | 88,36% | 62,82% | 55,68% | 94,15% | 59,04% | 0,5241 |
+| Árvore ajustada | 89,04% | 64,40% | 60,98% | 94,02% | 62,65% | 0,5626 |
+
+**Quais são os resultados da Random Forest no teste cronológico?** As duas versões usam o mesmo teste de 1.752 registros, com apenas 27 SIM.
+
+| Modelo | Acurácia | Precisão SIM | Sensibilidade SIM | Especificidade | F1 SIM | MCC |
+|---|---:|---:|---:|---:|---:|---:|
+| Floresta inicial | 98,80% | 100,00% | 22,22% | 100,00% | 36,36% | 0,4686 |
+| Floresta ajustada | 99,03% | 85,71% | 44,44% | 99,88% | 58,54% | 0,6133 |
+
+**Como traduzir isso em quantidade de erros?** Na floresta inicial, acertamos 6 chuvas, perdemos 21 e não geramos falsos alertas. Na ajustada, acertamos 12 chuvas, perdemos 15 e geramos 2 falsos alertas. A detecção melhorou, mas ainda deixa passar mais da metade das chuvas do teste.
+
+**Quais são as matrizes reais?** Na ordem `[NAO, SIM]`:
+
+| Modelo | Matriz `[[vn, fp], [fn, vp]]` |
 |---|---|
-| `README.md` | Contexto, objetivos, origem INMET, descrição das bases e link de planejamento Trello. |
-| `dataset/*.CSV` | Base bruta, adaptada e processada fornecidas pelo grupo; preservadas. |
-| `dataset/df_adaptado.ipynb` | Criação do alvo categórico a partir da precipitação. |
-| `notebooks/*.ipynb` | Seis notebooks de análise, tratamento e dois tipos de modelo. |
-| `pyproject.toml` | Python >=3.11, dependências e backend uv_build. |
-| `.python-version` | Sugere Python 3.11; ambiente local usa 3.12.8 compatível com pyproject. |
-| `uv.lock` | Lockfile original preservado; ambiente de hoje instalado com pip a partir de pyproject. |
-| `src/analise_precipitacao_caruaru/__init__.py` | Apenas função de exemplo `Hello from...`; não contém treinamento. |
-| `.venv/` | Ambiente isolado de 64 bits. |
-| `requirements-aula.txt` | Versões efetivamente instaladas para reproduzir este ambiente. |
-| `verificar_notebooks.py` | Execução de todos os notebooks em kernels novos, hashes e auditoria dos modelos existentes. |
-| `artefatos/html/` | Cópias HTML da execução, úteis como alternativa sem kernel. |
-| `artefatos/datasets/` | Exportações regeneradas, sem sobrescrever as bases fornecidas. |
-| `auditoria/` | Logs, métricas calculadas, verificações dos datasets e hashes antes/depois. |
-| `.jupyter-local/` | Informações locais do servidor e URL de acesso. |
+| Árvore inicial | `[[1401, 87], [117, 147]]` |
+| Árvore ajustada | `[[1399, 89], [103, 161]]` |
+| Floresta inicial | `[[1725, 0], [21, 6]]` |
+| Floresta ajustada | `[[1723, 2], [15, 12]]` |
 
-O quadro externo do Trello não foi usado como evidência de implementação; esta auditoria considera o conteúdo clonado do repositório.
+**Quais foram os melhores hiperparâmetros das buscas da árvore?** A tabela separa validação e teste. A escolha histórica da árvore final foi mantida; a apresentação não trocou parâmetros.
 
-## Dados confirmados nesta máquina
+| Busca da árvore | Critério | Profundidade | Mínimo por folha | F1 médio CV | F1 teste |
+|---|---|---:|---:|---:|---:|
+| Grid Search | entropy | 6 | 10 | 63,03% | 58,30% |
+| Random Search | entropy | 9 | 3 | 61,41% | 62,65% |
 
-- Estação A341, Caruaru/PE, registros horários de 01/01/2025 a 31/12/2025.
-- Base original e adaptada: 8.760 linhas × 20 colunas cada. Base processada: 8.756 linhas × 18 colunas, sendo 17 atributos e o alvo.
-- Adaptada: 7.440 NAO e 1.320 SIM (15,07% de chuva). Processada: 7.436 NAO e 1.320 SIM.
-- Zero linhas duplicadas na adaptada; radiação com 3.286 nulos; coluna `Unnamed: 19` inteira vazia; demais medições meteorológicas com quatro nulos por coluna. Processada sem nulos.
-- Quatro precipitações ausentes são convertidas em NAO pela regra original; essas linhas são retiradas na preparação da árvore, mas permanecem no fluxo independente da Random Forest, que imputa os preditores. Rever a validade do rótulo nessas quatro linhas.
-- Tamanho somado dos três CSVs: 4.542.066 bytes (aproximadamente 4,54 MB). Não é uma base de grande volume nesta versão.
-- Os CSVs adaptado e processado regenerados foram comparados aos fornecidos com tolerância numérica de `1e-12`: conteúdo equivalente. Os leitores permanecem usando as bases fornecidas em `dataset/`.
-- Evidência detalhada: `auditoria/datasets.json`; hashes e comparação direta com o ZIP em `auditoria/preservacao.json`.
+**O Random Search foi superior ao Grid?** Na árvore, só no F1 do teste. O Grid teve maior média de validação. Na floresta, as duas buscas chegaram à mesma configuração e empataram no F1 médio temporal. Não podemos afirmar superioridade geral de uma busca.
 
-## Modelos, hiperparâmetros e avaliação
+**Quais foram os melhores hiperparâmetros da floresta?** Ambas encontraram a mesma configuração; o desempate previamente definido escolheu Grid, sem consultar o teste.
 
-Existem **dois tipos de modelos**, ambos já presentes no repositório. Nenhum novo modelo foi implementado nesta preparação.
+| Busca da floresta | Árvores | Profundidade | Mínimo por folha | Atributos por divisão | F1 médio CV temporal |
+|---|---:|---|---:|---|---:|
+| Grid Search | 100 | sem limite | 3 | sqrt | 64,02% |
+| Random Search | 100 | sem limite | 3 | sqrt | 64,02% |
 
-### Decision Tree — notebook 09
+**Qual foi a melhora na validação da floresta?** F1 temporal médio de 50,93% no modelo inicial e 64,02% no candidato ajustado. Essa comparação foi usada para estudar os ajustes dentro do treino; não é o F1 do teste.
 
-- Treino inicial: `DecisionTreeClassifier(criterion='gini', max_depth=5, min_samples_split=10, random_state=42)`; demais parâmetros padrão da versão instalada.
-- Treino ajustado: `DecisionTreeClassifier(criterion='entropy', max_depth=9, min_samples_leaf=3, random_state=42)`; `min_samples_split` volta ao padrão 2.
-- Uma terceira instanciação da mesma classe, `DecisionTreeClassifier(random_state=42)`, é usada somente na validação cruzada de F1, sem os limites da árvore inicial.
-- Divisão: `train_test_split(test_size=0.2, random_state=42, stratify=y)`, embaralhamento padrão. `CHUVA`: NAO=0, SIM=1.
-- Balanceamento disponível: `RandomUnderSampler(random_state=42)`, aplicado somente ao treino. **As árvores e as buscas usam `X_train, y_train`, e não `X_train_bal, y_train_bal`.** Portanto o resultado atual da árvore é sem undersampling.
-- Métricas do código: acurácia no teste, matriz de confusão, MCC médio em 5 folds para a árvore inicial e ajustada, F1 médio/desvio em 5 folds para a árvore de parâmetros padrão. Precisão, recall e F1 escritos em Markdown são cálculos manuais históricos e devem ser conferidos contra a execução.
-- `cv=5` para classificação: StratifiedKFold de cinco partes, sem shuffle por padrão. Não é validação temporal. F1 usa classe positiva 1 (chuva).
-- Grid Search: `max_depth=[2,3,4,5,6,None]`, `criterion=['gini','entropy']`, `min_samples_leaf=[1,5,10]`; 36 combinações × 5 folds = 180 ajustes, mais refit. Estimador base com `random_state=42`, `scoring='f1'`, `n_jobs=-1`.
-- Random Search: `max_depth=randint(2,15)` (2 a 14), `criterion=['gini','entropy']`, `min_samples_leaf=randint(1,20)` (1 a 19); `n_iter=15`, `cv=5`, `random_state=42`, `scoring='f1'`, `n_jobs=-1`; 75 ajustes, mais refit.
-- `grid.score(...)` e `busca.score(...)` são **F1**, pois seguem `scoring='f1'`; não são acurácia.
-- A árvore final tem parâmetros escritos manualmente no código; não é automaticamente substituída por `best_estimator_` de cada nova busca.
+**Quais valores de MCC são de validação da árvore?** Inicial: 0,5275; ajustada: 0,5467. Eles vêm dos cinco folds do treino. Os MCC de teste são 0,5241 e 0,5626, respectivamente.
 
-Valores de validação cruzada reproduzidos:
+**A validação F1 da árvore representa a árvore inicial?** A célula original de F1 cria uma árvore com parâmetros padrão e semente 42: média de 56,89%, com desvio de 2,78 pontos percentuais. Ela é diferente da inicial limitada a profundidade 5. O notebook agora identifica essa diferença.
 
-| Avaliação | Resultado |
+**Quais atributos mais influenciaram a floresta ajustada?** As importâncias abaixo vêm das divisões das árvores e estão no notebook 10:
+
+| Atributo | Participação na importância total |
 |---|---:|
-| MCC médio, árvore inicial, 5 folds | 0,527493 |
-| MCC médio, árvore ajustada, 5 folds | 0,546698 |
-| F1 médio, árvore padrão, 5 folds | 0,568927 |
-| Desvio do F1, árvore padrão, 5 folds | 0,027811 |
+| Umidade relativa do ar no horário | 16,19% |
+| Umidade máxima da hora anterior | 11,21% |
+| Umidade mínima da hora anterior | 9,58% |
+| Hora | 6,28% |
+| Temperatura mínima da hora anterior | 5,28% |
 
-MCC de validação cruzada e MCC no teste são medidas obtidas em divisões diferentes; não intercambiar os valores.
+**Importância significa causa?** Não. É contribuição para as divisões do modelo. Variáveis correlacionadas podem dividir importância, e esse ranking não demonstra que uma variável causou chuva.
 
-| Busca | Melhores parâmetros | F1 médio CV | F1 teste |
-|---|---|---:|---:|
-| Grid | entropy; profundidade 6; mínimo folha 10 | 0,630283 | 0,582996 |
-| Random | entropy; profundidade 9; mínimo folha 3 | 0,614117 | 0,626459 |
+**E o ranking da Decision Tree?** O notebook 09 não apresenta um ranking de importância. Não inventamos valores nem acrescentamos esse cálculo nesta etapa de padronização.
 
-O Grid teve maior F1 de validação; o Random teve maior F1 no teste. Isso explica a aparente contradição com o texto histórico. A escolha metodológica deve ser discutida com o professor.
+**Podemos afirmar que um algoritmo é melhor que o outro?** Não com esses testes. A árvore usa teste aleatório com 264 chuvas e a floresta usa outro período com 27. Podemos comparar inicial e ajustado dentro de cada fluxo, mas não declarar um vencedor entre algoritmos.
 
-### Random Forest — notebook 10
+## Limitações e perguntas prováveis
 
-- `RandomForestClassifier(n_estimators=400, class_weight='balanced_subsample', random_state=42, n_jobs=-1)`; demais parâmetros padrão. O texto final do notebook menciona 300 árvores, mas **o código efetivamente treina 400**. O texto original foi preservado.
-- Ordenação por data/hora; primeiros 80% para treino e últimos 20% para teste; sem embaralhar.
-- Variáveis: medições meteorológicas numéricas mais mês/hora; removidos data textual, hora textual, timestamp e alvos. Seleção numérica por `ColumnTransformer`.
-- `SimpleImputer(strategy='median', add_indicator=True)` dentro de `Pipeline`, ajustado somente no treino. Sem normalização.
-- `balanced_subsample` pondera as classes a cada amostra bootstrap, sem remover registros.
-- Métricas implementadas: acurácia, precisão/recall/F1 de chuva, classification_report, matriz de confusão e importância de variáveis. Não há CV, Grid Search ou Random Search para Random Forest neste repositório.
+**Quais são as limitações atuais?** Somente uma estação e um ano, desbalanceamento, poucas chuvas no teste final, possível dependência temporal e rótulos de ausência de precipitação que precisam de revisão. O fluxo da árvore também mantém o pré-processamento anterior à divisão.
 
-Os parâmetros completos dos estimadores ajustados e as métricas adicionais calculadas pela auditoria ficam em `auditoria/decision_tree_inicial.json`, `auditoria/decision_tree_ajustada.json` e `auditoria/random_forest.json`.
+**O teste é completamente novo para nós?** Não: já havia sido consultado em versões anteriores. Nesta execução da floresta ele ficou fora das buscas; uma confirmação realmente nova exigiria outro período de dados.
 
-## Decisões metodológicas e pendências para discutir
+**O que falta implementar?** No escopo solicitado, as métricas, as buscas e a comparação da floresta estão implementadas. Permanecem como trabalho futuro: revisar qualidade/rótulos, tratar o risco de leakage da árvore, usar testes comparáveis e avaliar outros anos.
 
-1. **Alvo:** precipitação horária >0 mm gera SIM; zero gera NAO. A comparação `NaN > 0` também resulta em falso e pode classificar ausências como NAO. Conferir quantidades na auditoria de dados.
-2. **Pré-processamento da árvore:** média e MinMaxScaler ajustados na base inteira antes da divisão. Isso permite informação do teste influenciar o tratamento; o ideal futuro é ajustar essas transformações somente no treino e dentro dos folds. A lógica foi preservada.
-3. **Teste e sazonalidade:** a árvore usa teste aleatório e a floresta teste cronológico. Períodos e proporções de chuva diferem; não apresentar a diferença de acurácia como prova de superioridade de um algoritmo.
-4. **Seleção de busca:** a afirmação histórica de que Random Search foi melhor precisa distinguir F1 de validação e de teste. Escolher repetidamente pelo resultado no teste compromete sua independência; preferir seleção por CV e avaliação final única em um estudo posterior.
-5. **Significado do problema:** classificação de ocorrência no mesmo horário; as medições do horário não demonstram previsão de chuva futura. Para isso seriam necessários horizonte e variáveis defasadas, não implementados aqui.
-6. **Desbalanceamento:** acurácia alta pode esconder baixa detecção de chuva. Apresentar recall/F1 de SIM, matriz e suporte das classes. O treino balanceado criado no 07 ainda não é utilizado no 09.
-   Na divisão da árvore, são 7.004 registros de treino e 1.752 de teste; undersampling gera 2.112 registros (1.056 por classe), que atualmente não alimentam o modelo. Na floresta, são 7.008 no treino (até 19/10/2025 23h UTC) e 1.752 no teste (20/10 a 31/12/2025), com 1.293 e 27 casos de chuva, respectivamente.
-7. **Qualidade de sensores:** sensores automáticos não garantem ausência de falhas, outliers ou inconsistências. A justificativa histórica do notebook 06 precisa ser revista; não foi alterado o tratamento nesta preparação.
-8. **Radiação:** investigar por que há tantas ausências e sua relação com noite/sensor antes de assumir que média global é adequada.
-9. **Estação:** o código cria `ESTACAO`, embora parte do texto fale em meses. O mapeamento de meses é manual e a codificação por LabelEncoder seguida de MinMaxScaler cria ordem artificial. Validar o critério sazonal antes de generalizar.
-10. **Escopo de Big Data:** o repositório usa pandas e scikit-learn localmente; não implementa Spark, Hadoop ou processamento distribuído. Apresentar o volume real e o estágio acadêmico do trabalho, sem afirmar escala distribuída já implementada.
+**O que seria necessário para prever chuva futura?** Definir um horizonte e usar somente variáveis disponíveis antes do horário previsto, com atributos defasados e validação temporal adequada. Isso não foi implementado.
 
-Estas são pendências metodológicas registradas, não alterações realizadas. Não houve novos modelos nem mudança de hiperparâmetros, amostragem ou critérios de avaliação.
+**Por que não acrescentamos outros algoritmos da aula?** O escopo ficou em Decision Tree e Random Forest. Boosting e outros métodos aparecem na teoria da aula, mas não foram implementados neste trabalho.
 
-## Comandos de ambiente e reprodução
+**Por que cem árvores podem superar quatrocentas neste resultado?** Não foi só a quantidade: a busca também aumentou o mínimo por folha para 3. Mais árvores não garantem melhor F1; os parâmetros foram escolhidos em conjunto pela validação.
 
-Não é preciso ativar o ambiente para usar os comandos abaixo. Isso evita depender da política de execução de `Activate.ps1`.
+**O sorteio do Random Search encontrou o mesmo candidato do Grid. Isso é erro?** Não. Os espaços se sobrepõem e o sorteio pode visitar a mesma configuração. Os dois avaliaram essa configuração nos mesmos folds.
 
-```powershell
-# Ambiente já criado; comandos abaixo documentam como recriar.
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -r requirements-aula.txt
-.\.venv\Scripts\python.exe -m pip install -e . --no-deps
-.\.venv\Scripts\python.exe -m ipykernel install --prefix .venv --name caruaru-venv --display-name "Python 3.12 (.venv Caruaru)"
-.\.venv\Scripts\python.exe -m pip check
+**Posso escolher parâmetros pelo maior resultado do teste?** Não é uma boa prática: isso transforma o teste em parte da seleção. A floresta escolhe pelo F1 de validação; a escolha histórica da árvore é uma limitação documentada, não foi refeita para melhorar números.
 
-# Reexecuta os sete notebooks, atualiza saídas e gera evidências/HTML.
-.\.venv\Scripts\python.exe verificar_notebooks.py
+**Como sei que o código calcula as métricas?** Nos notebooks 09 e 10, elas vêm de `accuracy_score`, `precision_score`, `recall_score`, `f1_score` e `matthews_corrcoef`. A matriz vem de `confusion_matrix` ou de `ConfusionMatrixDisplay`. Não há cálculos manuais substituindo os resultados.
 
-# Alternativa: Jupyter no terminal, com URL autenticada exibida no console.
-.\.venv\Scripts\python.exe -m jupyterlab --ServerApp.ip=127.0.0.1 --ServerApp.port=8888
-```
+**O que foi alterado para padronizar a apresentação?** Formatação, tabelas e explicações. A árvore mantém os mesmos ajustes, parâmetros e divisões. A floresta mantém a metodologia e os espaços de busca definidos na finalização; não fizemos novas tentativas para melhorar a métrica depois da avaliação.
 
-Se a política do PowerShell bloquear scripts, use o inicializador `.cmd` ou os comandos diretos de Python. Para verificar o interpretador em uma célula: `import sys; print(sys.executable)`; ele deve terminar em `analise-precipitacao-caruaru\.venv\Scripts\python.exe`.
+## Onde encontrar cada etapa
 
-## Preservação e alterações locais
+| Etapa | Notebook | Situação |
+|---|---|---|
+| Criação de CHUVA | `dataset/df_adaptado.ipynb` | Implementada; gera cópia sem alterar o CSV fornecido. |
+| Exploração e frequência das classes | `01_analise_exploratoria.ipynb` | Implementada. |
+| Nulos e duplicados | `02_analise_valores_nulos.ipynb` | Implementada. |
+| Remoção de colunas, média, codificação e normalização da árvore | `06_pre-processamento.ipynb` | Implementadas; ajuste anterior à divisão continua como limitação. |
+| Divisão da árvore e undersampling disponível | `07_divisao_e_balanceamento.ipynb` | Implementados; treino balanceado não alimenta a árvore. |
+| Árvore inicial/ajustada, matrizes e métricas automáticas | `09_decision_tree.ipynb` | Implementadas e identificadas como teste. |
+| CV, Grid e Random Search da árvore | `09_decision_tree.ipynb` | Mantidos; tabela distingue CV e teste. |
+| Pipeline, pesos e divisão cronológica da floresta | `10_random_forest.ipynb` | Implementados. |
+| Cinco folds temporais e duas buscas pequenas | `10_random_forest.ipynb` | Implementados apenas no treino. |
+| Matrizes, métricas e comparação da floresta | `10_random_forest.ipynb` | Implementadas no mesmo teste reservado. |
+| Importância dos atributos da floresta | `10_random_forest.ipynb` | Implementada para inicial e ajustada. |
+| Previsão futura, revisão de rótulos e teste comum entre algoritmos | Nenhum | Pendências ou sugestões, não resultados já implementados. |
 
-- `main` e `origin/main` foram obtidas do commit `a0d8d83dd5070ae3708f6c2ca3dfa2f6e10f7851`, confirmado com `git ls-remote` em 16/11/2026.
-- Trabalho local na branch `preparacao-aula-2026-11-16`; sem push e sem modificação remota.
-- As alterações de preparação foram registradas em commit exclusivamente local nessa branch; `main` continua no commit original.
-- Originais completos, incluindo notebooks com saídas anteriores, preservados em `..\analise-precipitacao-caruaru-original-a0d8d83.zip`.
-- Sete notebooks: metadados de kernel apontados para o ambiente local e saídas atualizadas pela execução real, sem alterar o código dos modelos ou o texto histórico. O nbformat também adicionou IDs a células do notebook 10 que não os tinham.
-- `dataset/df_adaptado.ipynb`: apenas exportação redirecionada para `artefatos/datasets`, para não sobrescrever o CSV adaptado original.
-- `notebooks/06_pre-processamento.ipynb`: apenas exportação redirecionada para `artefatos/datasets`, explicitando o destino e evitando CSV solto em `notebooks/`.
-- `.gitignore`: exclusão do ambiente, caches, exportações, evidências e dados locais do servidor.
-- Acrescentados este guia, versões instaladas, inicializadores e verificador. `pyproject.toml`, `uv.lock`, README e código dos modelos preservados.
-- Os hashes dos três CSVs são comparados antes/depois de cada notebook; arquivos de evidência: `auditoria/hashes_dataset_antes.json` e `auditoria/hashes_dataset_depois.json`.
+## Resposta curta para abrir a apresentação
 
-## Roteiro de cinco minutos para a aula
-
-1. Mostre objetivo, fonte INMET e classes do notebook 01.
-2. Explique nulos e transformações no 02/06.
-3. Mostre divisão e a observação de que undersampling ainda não entra no treino da árvore.
-4. Abra a árvore já executada, mostre matriz, F1/MCC e buscas.
-5. Abra Random Forest, explique teste cronológico, métricas da classe SIM e limitações. Finalize com próximas decisões metodológicas, sem prometer previsão futura ou comparação direta de algoritmos.
-
-Se faltar tempo para reexecutar buscas durante a aula, use os notebooks com saídas verificadas ou os arquivos de `artefatos/html/`.
+“Estamos classificando ocorrência de chuva horária em Caruaru. Já exploramos e preparamos os dados, temos uma árvore de decisão e finalizamos a Random Forest. Na floresta, escolhemos hiperparâmetros pelo F1 de chuva em cinco validações temporais, sem usar o teste na busca. A versão ajustada detectou 12 das 27 chuvas do teste, contra 6 da inicial. Ainda precisamos ampliar os dados e revisar limitações antes de falar em previsão futura ou superioridade de um algoritmo.”
